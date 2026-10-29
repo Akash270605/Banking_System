@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bank transfer</title>
+</head>
+<body>
+<h1>Transfer money</h1>
+
+<form id="transfer-form">
+    <label>
+        Sender account
+        <input name="senderAccountNumber" required>
+    </label>
+    <br><br>
+
+    <label>
+        Receiver account
+        <input name="receiverAccountNumber" required>
+    </label>
+    <br><br>
+
+    <label>
+        Amount
+        <input name="amount" type="number" min="0.01" step="0.01" required>
+    </label>
+    <br><br>
+
+    <label>
+        Description
+        <input name="description">
+    </label>
+    <br><br>
+
+    <button type="submit">Transfer</button>
+</form>
+
+<p id="result" role="status"></p>
+
+<script>
+    const form = document.getElementById("transfer-form");
+    const result = document.getElementById("result");
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        result.textContent = "Submitting transfer...";
+
+        const formData = new FormData(form);
+        const request = Object.fromEntries(formData.entries());
+        request.amount = Number(request.amount);
+
+        try {
+            const response = await fetch("/api/v1/transactions/transfer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(request)
+            });
+
+            const responseText = await response.text();
+            if (!response.ok) {
+                throw new Error(responseText || `Request failed (${response.status})`);
+            }
+
+            const transaction = JSON.parse(responseText);
+            result.textContent =
+                `Transfer submitted. Transaction: ${transaction.id}; status: ${transaction.status}`;
+        } catch (error) {
+            result.textContent = `Transfer failed: ${error.message}`;
+        }
+    });
+</script>
+</body>
+</html>

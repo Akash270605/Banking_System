@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pay with Razorpay</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+<h1>Make a payment</h1>
+
+<form id="payment-form">
+    <label>
+        Account number
+        <input name="accountNumber" required>
+    </label>
+    <br><br>
+
+    <label>
+        Amount (USD)
+        <input name="amount" type="number" min="0.01" step="0.01" required>
+    </label>
+    <br><br>
+
+    <label>
+        Description
+        <input name="description">
+    </label>
+    <br><br>
+
+    <button type="submit">Continue to Razorpay</button>
+</form>
+
+<p id="result" role="status"></p>
+
+<script>
+    const form = document.getElementById("payment-form");
+    const result = document.getElementById("result");
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        result.textContent = "Creating payment order...";
+
+        const formData = new FormData(form);
+        const request = Object.fromEntries(formData.entries());
+        request.amount = Number(request.amount);
+
+        try {
+            const response = await fetch("/api/v1/payments/create-order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(request)
+            });
+
+            if (!response.ok) {
+                throw new Error(await response.text() || `Request failed (${response.status})`);
+            }
+
+            const order = await response.json();
+
+            const checkout = new Razorpay({
+                key: order.razorpayKeyId,
+                amount: Math.round(Number(order.amount) * 100),
+                currency: order.currency,
+                name: "Banking System",
+                description: request.description || "Account payment",
+                order_id: order.razorpayOrderId,
+                handler: (paymentResult) => {
+                    result.textContent =
+                        `Payment submitted. Reference: ${paymentResult.razorpay_payment_id}. ` +
+                        "Wait for server confirmation before treating it as complete.";
+                },
+                modal: {
+                    ondismiss: () => {
+                        result.textContent = "Checkout closed. Payment was not confirmed.";
+                    }
+                }
+            });
+
+            checkout.open();
+        } catch (error) {
+            result.textContent = `Could not start payment: ${error.message}`;
+        }
+    });
+</script>
+</body>
+</html>
